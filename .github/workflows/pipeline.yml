@@ -41,9 +41,10 @@ jobs:
           NEXUS_URL: ${{ secrets.NEXUS_URL }}
         run: |
           export RELEASE_DATE="$(date -I'seconds' -u)"
-          tee /tmp/ca.pem > /dev/null << EOF
-          ${KUBE_CA_PEM}
-          EOF
+          # 1. Decodifica e Scrittura del Certificato CA
+          # La variabile KUBE_CA_PEM viene decodificata da Base64 (base64 -d)
+          # e il risultato viene scritto nel file /tmp/ca.pem.
+          echo "${KUBE_CA_PEM}" | base64 -d > /tmp/ca.pem
           mkdir ${DESTINATION_PATH}
           test -f "${VARIABLES_FILE}" && set -a && source "${VARIABLES_FILE}"
           test -f "${GENERATE_FILE}" && mlp generate -c "${GENERATE_FILE}" -e "${ENVIRONMENT_PREFIX}" -e "${ENVIRONMENT_VARIABLES_PREFIX}" -o "${OVERLAY_PATH}"
