@@ -8,7 +8,7 @@ jobs:
     permissions:
       deployments: write
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     container: miaplatform/mlp:2.1.0
     steps:
       - uses: actions/checkout@v4
