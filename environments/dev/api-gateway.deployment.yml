@@ -28,6 +28,7 @@ spec:
   template:
     metadata:
       annotations:
+        mia-platform.eu/version: 14.1.0-alpha.0
         apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
         apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
         fluentbit.io/parser: pino

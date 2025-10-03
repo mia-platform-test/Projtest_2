@@ -6,6 +6,9 @@ data:
 kind: ConfigMap
 metadata:
   name: api-gateway-envoy-config
+  annotations:
+    mia-platform.eu/creation-user: api-console
+    mia-platform.eu/version: 14.1.0-alpha.0
   labels:
     app.kubernetes.io/part-of: projtest-2
     app.kubernetes.io/managed-by: mia-platform
