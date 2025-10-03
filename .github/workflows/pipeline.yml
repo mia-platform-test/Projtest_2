@@ -26,47 +26,18 @@ jobs:
       - name: Deploy my app
         env:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
-          KUBE_URL: ${{ secrets.KUBE_URL }}
-          KUBE_CA_PEM: ${{ secrets.KUBE_CA_PEM }}
-          KUBE_TOKEN: ${{ secrets.KUBE_TOKEN }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
         run: |
-          export RELEASE_DATE="$(date -I'seconds' -u)"
+          # 1. Configurazione dell'Ambiente Minikube
+          # Questo comando configura KUBECONFIG e le credenziali corrette
+          # all'interno del Self-Hosted Runner.
+          eval $(minikube -p minikube shell-env)
           
-          # 1. Preparazione delle Credenziali
-          # Decodifica il Certificato CA e lo salva in /tmp/ca.pem
-          echo "${KUBE_CA_PEM}" | base64 -d > /tmp/ca.pem
-          
-          # 2. Configurazione del Contesto Kubectl
-          # Creazione di un Kubeconfig temporaneo usando le variabili
-          
-          # 2a. Imposta l'URL del Cluster e l'Autorità di Certificazione
-          kubectl config set-cluster pipeline-cluster \
-            --server="${KUBE_URL}" \
-            --certificate-authority="/tmp/ca.pem" \
-            --embed-certs=true
-            
-          # 2b. Imposta le Credenziali del Service Account
-          kubectl config set-credentials pipeline-user --token="${KUBE_TOKEN}"
-          
-          # 2c. Crea e usa il Contesto
-          kubectl config set-context pipeline-context \
-            --cluster=pipeline-cluster \
-            --user=pipeline-user \
-            --namespace="${KUBE_NAMESPACE}"
-            
-          kubectl config use-context pipeline-context
-
-          # 3. Creazione del Namespace (Opzionale ma raccomandato)
-          # Assicura che il namespace esista prima di applicare i file
+          # 2. Creazione del Namespace
           kubectl create namespace "${KUBE_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
           
-          # 4. Deployment dei file YAML
-          # Applica ricorsivamente tutti i file YAML nella cartella dell'ambiente
+          # 3. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
-          
-          # NOTA: Usiamo "kustomize build" per una gestione ottimale dei manifest,
-          # anche se stai solo applicando file raw da una cartella.
           kubectl apply -k "${DEPLOY_FOLDER}"
           
           echo "Deployment completed."
