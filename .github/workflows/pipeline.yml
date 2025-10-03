@@ -1,5 +1,6 @@
 name: Deploy Workflow
 on: deployment
+
 jobs:
   debug:
     runs-on: self-hosted
@@ -21,6 +22,7 @@ jobs:
           server_ip=$(grep server $HOME/.kube/config | awk -F/ '{print $3}' | cut -d: -f1)
           echo "Test curl verso API server $server_ip"
           curl -vk https://$server_ip:8443 || echo "Connessione fallita"
+
   deploy-ENVIRONMENT_NAME:
     name: Deploy to ENVIRONMENT_NAME environment
     if: ${{ github.event.deployment.environment }} == ENVIRONMENT_NAME
@@ -32,10 +34,12 @@ jobs:
     container: alpine/git:latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install kubectl
         run: |
           apk update
-          apk add kubectl
+          apk add kubectl bash coreutils
+
       - name: Update deployment status (pending)
         if: success()
         uses: chrnorm/deployment-status@v2
@@ -43,24 +47,28 @@ jobs:
           token: '${{ github.token }}'
           state: 'pending'
           deployment-id: ${{ github.event.deployment.id }}
+
       - name: Deploy my app
         env:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
-          DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
-          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }} # Il nuovo Secret Base64
+          DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
         run: |
-          # 1. Decodifica il Kubeconfig e salvalo
-          # Questo crea il file /tmp/kubeconfig con l'URL corretto (127.0.0.1)
+          # 1. Decodifica il kubeconfig inline e salvalo
           echo "${KUBE_CONFIG_B64}" | base64 -d > /tmp/kubeconfig
-          
+
           # 2. Imposta la variabile d'ambiente KUBECONFIG
-          # Questo dice a kubectl di usare il file decodificato
           export KUBECONFIG=/tmp/kubeconfig
-          # 3. Deployment dei file YAML
+
+          # 3. Verifica connessione al cluster
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+          # 4. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
           kubectl apply -f "${DEPLOY_FOLDER}"
-          
           echo "Deployment completed."
+
       - name: Update deployment status (failure)
         if: failure()
         uses: chrnorm/deployment-status@v2
