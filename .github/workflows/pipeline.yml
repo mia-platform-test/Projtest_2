@@ -15,17 +15,7 @@ jobs:
       - name: Install kubectl
         run: |
           apk update
-          apk add kubectl curl
-
-          # Scarica Minikube
-          curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          
-          # QUESTO È LO STEP MANCANTE O ERRATO:
-          # Rende il file eseguibile e lo sposta in una directory PATH.
-          install -o root -g root -m 0755 minikube /usr/local/bin/minikube
-          
-          # Verifica che ora sia accessibile
-          minikube version
+          apk add kubectl
       - name: Update deployment status (pending)
         if: success()
         uses: chrnorm/deployment-status@v2
@@ -37,10 +27,15 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }} # Il nuovo Secret Base64
         run: |
-          # 1. Configurazione del Kubeconfig per l'Ambiente Locale
-          # Questo risolve il problema dell'IP 192.168.x.x
-          eval $(minikube shell-env)
+          # 1. Decodifica il Kubeconfig e salvalo
+          # Questo crea il file /tmp/kubeconfig con l'URL corretto (127.0.0.1)
+          echo "${KUBE_CONFIG_B64}" | base64 -d > /tmp/kubeconfig
+          
+          # 2. Imposta la variabile d'ambiente KUBECONFIG
+          # Questo dice a kubectl di usare il file decodificato
+          export KUBECONFIG=/tmp/kubeconfig
           # 3. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
           kubectl apply -f "${DEPLOY_FOLDER}"
