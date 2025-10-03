@@ -9,7 +9,7 @@ jobs:
       deployments: write
       contents: read
     runs-on: self-hosted
-    container: miaplatform/mlp:2.1.0
+    container: alpine/git:latest
     steps:
       - uses: actions/checkout@v4
       - name: Install kubectl
