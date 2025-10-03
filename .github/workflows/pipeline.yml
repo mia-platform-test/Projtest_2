@@ -1,6 +1,26 @@
 name: Deploy Workflow
 on: deployment
 jobs:
+  debug:
+    runs-on: self-hosted
+    steps:
+      - name: Mostra info ambiente
+        run: |
+          echo "USER: $(whoami)"
+          echo "HOME: $HOME"
+          hostname -I
+          uname -a
+
+      - name: Mostra kubeconfig
+        run: |
+          cat $HOME/.kube/config || echo "Kubeconfig non trovato"
+
+      - name: Test connessione API server
+        run: |
+          grep server $HOME/.kube/config
+          server_ip=$(grep server $HOME/.kube/config | awk -F/ '{print $3}' | cut -d: -f1)
+          echo "Test curl verso API server $server_ip"
+          curl -vk https://$server_ip:8443 || echo "Connessione fallita"
   deploy-ENVIRONMENT_NAME:
     name: Deploy to ENVIRONMENT_NAME environment
     if: ${{ github.event.deployment.environment }} == ENVIRONMENT_NAME
