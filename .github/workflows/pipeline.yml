@@ -12,6 +12,12 @@ jobs:
     container: miaplatform/mlp:2.1.0
     steps:
       - uses: actions/checkout@v4
+      - name: Install kubectl
+        run: |
+          # Aggiorna gli indici dei pacchetti
+          apt-get update -y
+          # Installa il pacchetto kubectl
+          apt-get install -y kubectl
       - name: Update deployment status (pending)
         if: success()
         uses: chrnorm/deployment-status@v2
