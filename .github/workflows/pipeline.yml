@@ -16,6 +16,9 @@ jobs:
         run: |
           apk update
           apk add kubectl
+          # Installiamo Minikube (usando curl, poiché non è in apk)
+          curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          install -o root -g root -m 0755 minikube /usr/local/bin/minikube
       - name: Update deployment status (pending)
         if: success()
         uses: chrnorm/deployment-status@v2
@@ -28,6 +31,9 @@ jobs:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
         run: |
+          # 1. Configurazione del Kubeconfig per l'Ambiente Locale
+          # Questo risolve il problema dell'IP 192.168.x.x
+          eval $(minikube shell-env)
           # 3. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
           kubectl apply -f "${DEPLOY_FOLDER}"
