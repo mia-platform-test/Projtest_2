@@ -28,14 +28,6 @@ jobs:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
         run: |
-          # 1. Configurazione dell'Ambiente Minikube
-          # Questo comando configura KUBECONFIG e le credenziali corrette
-          # all'interno del Self-Hosted Runner.
-          eval $(minikube -p minikube shell-env)
-          
-          # 2. Creazione del Namespace
-          kubectl create namespace "${KUBE_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-          
           # 3. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
           kubectl apply -k "${DEPLOY_FOLDER}"
