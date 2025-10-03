@@ -30,7 +30,7 @@ jobs:
         run: |
           # 3. Deployment dei file YAML
           echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
-          kubectl apply -k "${DEPLOY_FOLDER}"
+          kubectl apply -f "${DEPLOY_FOLDER}"
           
           echo "Deployment completed."
       - name: Update deployment status (failure)
