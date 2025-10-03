@@ -21,45 +21,51 @@ jobs:
           deployment-id: ${{ github.event.deployment.id }}
       - name: Deploy my app
         env:
-          GIT_DEPTH: 1
-          ENVIRONMENT_VARIABLES_PREFIX: MIA_
-          BASE_PATH: ${{ github.workspace }}/configuration
-          OVERLAY_PATH: "${{ github.workspace }}/overlays/${{ github.event.deployment.environment }}"
-          DESTINATION_PATH: "${{ github.workspace }}/interpolated-files"
-          GENERATE_FILE: "${{ github.workspace }}/mlp.yaml"
-          VARIABLES_FILE: "${{ github.workspace }}/overlays/${{ github.event.deployment.environment }}/variables.env"
-          ENVIRONMENT_TO_DEPLOY: ${{ github.event.deployment.environment }}
-          ENVIRONMENT_PREFIX: ${{ github.event.deployment.environment }}_
-          DEPLOY_TYPE: ${{ github.event.deployment.payload.variables.DEPLOY_TYPE }}
-          FORCE_DEPLOY_WHEN_NO_SEMVER: ${{ github.event.deployment.payload.variables.FORCE_DEPLOY_WHEN_NO_SEMVER }}
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           KUBE_URL: ${{ secrets.KUBE_URL }}
           KUBE_CA_PEM: ${{ secrets.KUBE_CA_PEM }}
           KUBE_TOKEN: ${{ secrets.KUBE_TOKEN }}
-          NEXUS_USER: ${{ secrets.NEXUS_USER }}
-          NEXUS_TOKEN: ${{ secrets.NEXUS_TOKEN }}
-          NEXUS_URL: ${{ secrets.NEXUS_URL }}
+          DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }} # Assumendo che il nome del tuo environment sia 'dev'
         run: |
           export RELEASE_DATE="$(date -I'seconds' -u)"
-          # 1. Decodifica e Scrittura del Certificato CA
-          # La variabile KUBE_CA_PEM viene decodificata da Base64 (base64 -d)
-          # e il risultato viene scritto nel file /tmp/ca.pem.
+          
+          # 1. Preparazione delle Credenziali
+          # Decodifica il Certificato CA e lo salva in /tmp/ca.pem
           echo "${KUBE_CA_PEM}" | base64 -d > /tmp/ca.pem
-          mkdir ${DESTINATION_PATH}
-          test -f "${VARIABLES_FILE}" && set -a && source "${VARIABLES_FILE}"
-          test -f "${GENERATE_FILE}" && mlp generate -c "${GENERATE_FILE}" -e "${ENVIRONMENT_PREFIX}" -e "${ENVIRONMENT_VARIABLES_PREFIX}" -o "${OVERLAY_PATH}"
-          mlp hydrate "${BASE_PATH}" "${OVERLAY_PATH}"
-          mlp interpolate -e "${ENVIRONMENT_PREFIX}" -e "${ENVIRONMENT_VARIABLES_PREFIX}" -f "${BASE_PATH}" -o "${BASE_PATH}"
-          mlp interpolate -e "${ENVIRONMENT_PREFIX}" -e "${ENVIRONMENT_VARIABLES_PREFIX}" -f "${OVERLAY_PATH}" -o "${OVERLAY_PATH}"
-          mlp kustomize "${OVERLAY_PATH}" -o "${DESTINATION_PATH}/kustomize-output.yaml"
-          mlp deploy --ensure-namespace=false --server "${KUBE_URL}" --certificate-authority "/tmp/ca.pem" --token "${KUBE_TOKEN}" --deploy-type "${DEPLOY_TYPE}" --force-deploy-when-no-semver="${FORCE_DEPLOY_WHEN_NO_SEMVER}" -f "${DESTINATION_PATH}/kustomize-output.yaml" -n "${KUBE_NAMESPACE}"
-      - name: Update deployment status (success)
-        if: success()
-        uses: chrnorm/deployment-status@v2
-        with:
-          token: '${{ github.token }}'
-          state: 'success'
-          deployment-id: ${{ github.event.deployment.id }}
+          
+          # 2. Configurazione del Contesto Kubectl
+          # Creazione di un Kubeconfig temporaneo usando le variabili
+          
+          # 2a. Imposta l'URL del Cluster e l'Autorità di Certificazione
+          kubectl config set-cluster pipeline-cluster \
+            --server="${KUBE_URL}" \
+            --certificate-authority="/tmp/ca.pem" \
+            --embed-certs=true
+            
+          # 2b. Imposta le Credenziali del Service Account
+          kubectl config set-credentials pipeline-user --token="${KUBE_TOKEN}"
+          
+          # 2c. Crea e usa il Contesto
+          kubectl config set-context pipeline-context \
+            --cluster=pipeline-cluster \
+            --user=pipeline-user \
+            --namespace="${KUBE_NAMESPACE}"
+            
+          kubectl config use-context pipeline-context
+
+          # 3. Creazione del Namespace (Opzionale ma raccomandato)
+          # Assicura che il namespace esista prima di applicare i file
+          kubectl create namespace "${KUBE_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 4. Deployment dei file YAML
+          # Applica ricorsivamente tutti i file YAML nella cartella dell'ambiente
+          echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
+          
+          # NOTA: Usiamo "kustomize build" per una gestione ottimale dei manifest,
+          # anche se stai solo applicando file raw da una cartella.
+          kubectl apply -k "${DEPLOY_FOLDER}"
+          
+          echo "Deployment completed."
       - name: Update deployment status (failure)
         if: failure()
         uses: chrnorm/deployment-status@v2
