@@ -15,10 +15,16 @@ jobs:
       - name: Install kubectl
         run: |
           apk update
-          apk add kubectl
-          # Installiamo Minikube (usando curl, poiché non è in apk)
+          # Aggiungi 'curl' qui
+          apk add kubectl curl
+          
+          # Scarica e installa Minikube
+          # Ora 'curl' dovrebbe funzionare
           curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
           install -o root -g root -m 0755 minikube /usr/local/bin/minikube
+          
+          # Verifica (opzionale)
+          minikube version
       - name: Update deployment status (pending)
         if: success()
         uses: chrnorm/deployment-status@v2
