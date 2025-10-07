@@ -32,7 +32,7 @@ jobs:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
         run: |
-          kubectl apply -f "${DEPLOY_FOLDER}"
+          find "${DEPLOY_FOLDER}" -type f -name "*.yaml" ! -name "kustomization.yaml" -exec kubectl apply -f {} \;
           kubectl rollout status -n "$KUBE_NAMESPACE" deployment/my-deployment
   
       - name: Update deployment status (success)
