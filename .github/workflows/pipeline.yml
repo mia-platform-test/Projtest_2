@@ -33,7 +33,7 @@ jobs:
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
         run: |
              echo "Deploying manifests in namespace $KUBE_NAMESPACE..."
-             kubectl apply -f $DEPLOY_FOLDER
+             kubectl apply -k $DEPLOY_FOLDER
   
       - name: Update deployment status (success)
         if: success()
