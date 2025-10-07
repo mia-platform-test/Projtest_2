@@ -32,8 +32,14 @@ jobs:
           KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
           DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
         run: |
-             echo "Deploying manifests in namespace $KUBE_NAMESPACE..."
-             kubectl apply -k $DEPLOY_FOLDER
+              echo "Deploying manifests in namespace $KUBE_NAMESPACE..."
+              # Assicurati che il namespace esista
+              kubectl get namespace "$KUBE_NAMESPACE" || kubectl create namespace "$KUBE_NAMESPACE"
+              # Assicurati che il ServiceAccount esista
+              kubectl get sa api-gateway -n "$KUBE_NAMESPACE" || kubectl create sa api-gateway -n "$KUBE_NAMESPACE"
+              kubectl patch sa api-gateway -n "$KUBE_NAMESPACE" -p '{"imagePullSecrets":[{"name":"nexus-gcloud"}]}'
+              # Applica tutti i manifest generati da Kustomize
+              kustomize build "$DEPLOY_FOLDER" | kubectl apply -n "$KUBE_NAMESPACE" -f -
   
       - name: Update deployment status (success)
         if: success()
