@@ -10,12 +10,16 @@ jobs:
       deployments: write
       contents: read
     runs-on: self-hosted
-    container: bitnami/kubectl:latest
     steps:
       - uses: actions/checkout@v4
-  
+
       - name: Set KUBECONFIG
         run: echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+
+      - name: Verifica accesso cluster
+        run: |
+          kubectl config current-context
+          kubectl get nodes
   
       - name: Debug access
         run: |
