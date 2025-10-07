@@ -2,27 +2,6 @@ name: Deploy Workflow
 on: deployment
 
 jobs:
-  debug:
-    runs-on: self-hosted
-    steps:
-      - name: Mostra info ambiente
-        run: |
-          echo "USER: $(whoami)"
-          echo "HOME: $HOME"
-          hostname -I
-          uname -a
-
-      - name: Mostra kubeconfig
-        run: |
-          cat $HOME/.kube/config || echo "Kubeconfig non trovato"
-
-      - name: Test connessione API server
-        run: |
-          grep server $HOME/.kube/config
-          server_ip=$(grep server $HOME/.kube/config | awk -F/ '{print $3}' | cut -d: -f1)
-          echo "Test curl verso API server $server_ip"
-          curl -vk https://$server_ip:8443 || echo "Connessione fallita"
-
   deploy-ENVIRONMENT_NAME:
     name: Deploy to ENVIRONMENT_NAME environment
     if: ${{ github.event.deployment.environment }} == ENVIRONMENT_NAME
@@ -31,44 +10,35 @@ jobs:
       deployments: write
       contents: read
     runs-on: self-hosted
-    container: alpine/git:latest
+    container: bitnami/kubectl:latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install kubectl
+  
+      - name: Set KUBECONFIG
+        run: echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+  
+      - name: Debug access
         run: |
-          apk update
-          apk add kubectl bash coreutils
-
-      - name: Update deployment status (pending)
+          kubectl config current-context
+          kubectl cluster-info
+          kubectl get nodes
+  
+      - name: Deploy YAMLs
+        env:
+          KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
+          DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
+        run: |
+          kubectl apply -f "${DEPLOY_FOLDER}"
+          kubectl rollout status -n "$KUBE_NAMESPACE" deployment/my-deployment
+  
+      - name: Update deployment status (success)
         if: success()
         uses: chrnorm/deployment-status@v2
         with:
           token: '${{ github.token }}'
-          state: 'pending'
+          state: 'success'
           deployment-id: ${{ github.event.deployment.id }}
-
-      - name: Deploy my app
-        env:
-          KUBE_NAMESPACE: ${{ github.event.deployment.payload.variables.KUBE_NAMESPACE }}
-          DEPLOY_FOLDER: environments/${{ github.event.deployment.environment }}
-          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
-        run: |
-          # 1. Decodifica il kubeconfig inline e salvalo
-          echo "${KUBE_CONFIG_B64}" | base64 -d > /tmp/kubeconfig
-
-          # 2. Imposta la variabile d'ambiente KUBECONFIG
-          export KUBECONFIG=/tmp/kubeconfig
-
-          # 3. Verifica connessione al cluster
-          kubectl cluster-info
-          kubectl get nodes -o wide
-
-          # 4. Deployment dei file YAML
-          echo "Starting deployment of files in ${DEPLOY_FOLDER}..."
-          kubectl apply -f "${DEPLOY_FOLDER}"
-          echo "Deployment completed."
-
+  
       - name: Update deployment status (failure)
         if: failure()
         uses: chrnorm/deployment-status@v2
